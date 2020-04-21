@@ -6,14 +6,14 @@ import get from 'lodash/get'
 import pick from 'lodash/pick'
 import has from 'lodash/has'
 import noop from 'lodash/noop'
-import { mergeConfigs, makePromiseSubscription, Fragment, getNameSpace } from '../utils'
+import { mergeConfigs, makePromiseSubscription, Loader, getNameSpace } from '../utils'
 
 
 const defaultConfigs = {
   destroyOnUnmount: true,
   refresh: true,
   defaultParams: {},
-  Loader: Fragment,
+  Loader,
 }
 
 
@@ -36,8 +36,10 @@ export function prefetch(resources, configs) {
         super(props)
         this.getResources = this.getResources.bind(this)
         const initialLoading = configs.refresh || this.getResources()
-          .findIndex(({ resource }) => !has(resource, 'data') && !has(resource, 'errors')) !== -1
-        this.state = { initialLoading }
+          .findIndex(({ resource }) => !has(resource, 'data')) !== -1
+        this.state = {
+          initialLoading: configs.idKey ? !!props[configs.idKey] : initialLoading,
+        }
       }
 
       getResources() {

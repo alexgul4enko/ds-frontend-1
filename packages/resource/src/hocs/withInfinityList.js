@@ -6,15 +6,14 @@ import get from 'lodash/get'
 import has from 'lodash/has'
 import pick from 'lodash/pick'
 import noop from 'lodash/noop'
-import debounce from 'lodash/debounce'
-import { Fragment, mergeConfigs, makePromiseSubscription, getNameSpace } from '../utils'
+import { Loader, mergeConfigs, makePromiseSubscription, getNameSpace , promiseDebounce} from '../utils'
 
 
 const defaultConfigs = {
   prefetch: true,
   destroyOnUnmount: true,
   refresh: true,
-  Loader: Fragment,
+  Loader,
   defaultParams: {
     limit: 20,
   },
@@ -61,7 +60,7 @@ function withList(key, resource, configs) {
         this.loadNext = this.loadNext.bind(this)
         this.refresh = this.refresh.bind(this)
         this.getapiDatafromProps = this.getapiDatafromProps.bind(this)
-        this.onSearch = debounce(this.handleSearch.bind(this), 300)
+        this.onSearch = promiseDebounce(this.handleSearch.bind(this), 300)
 
         const initialLoading = configs.refresh || (!has(get(props, `[${key}].data`)) && !has(get(props, `[${key}].errors`)))
         this.state = {
@@ -77,9 +76,9 @@ function withList(key, resource, configs) {
         if(!request) { return }
 
         this.request = request({
+          offset: 0,
           ...get(configs, 'defaultParams', {}),
           ...this.getapiDatafromProps(),
-          offset: 0,
         }, { reducer: 'replace', forceUpdates: true })
         this.subscription = makePromiseSubscription([this.request])
         this.subscription
@@ -111,8 +110,8 @@ function withList(key, resource, configs) {
         if(!request) { return }
         this.request = request({
           ...get(this.props[key], 'filters', {}),
-          ...search,
           offset: 0,
+          ...search,
         }, { reducer: 'replace', ...(apiParams || {}) })
         return this.request
       }

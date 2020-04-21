@@ -2,17 +2,17 @@ import { Component } from 'react'
 import { Form } from 'react-final-form'
 import { FORM_ERROR } from 'final-form'
 import { parse } from 'path-to-regexp'
-import pick from 'lodash/pick'
 import omit from 'lodash/omit'
 import get from 'lodash/get'
 import isEmpty from 'lodash/isEmpty'
+import { parseIdKey } from '../utils'
 
 
 export default function withFinalForm({
   validate = () => {},
   onSubmitSuccess,
   onSubmitFailed,
-  valuesInteceptor,
+  valuesInterceptor,
   ...configs
 }, config) {
   const key = get(config, 'key')
@@ -41,8 +41,10 @@ export default function withFinalForm({
       handleSubmit(values, form) {
         const registeredFields = form.getRegisteredFields()
         const idKey = getIdKey(this.props, config)
-        const apiData = { ...getData(values, this.props, form, valuesInteceptor, registeredFields), ...(idKey || {}) }
-        const submitAction = get(this.props[key], 'customRequest') || isEmpty(idKey) ? get(this.props[key], 'create') : get(this.props[key], 'update')
+        const apiData = { ...getData(values, this.props, form, valuesInterceptor), ...(idKey || {}) }
+        const submitAction = get(this.props[key], 'customRequest')
+          ? get(this.props[key], 'customRequest')
+          : isEmpty(idKey) ? get(this.props[key], 'create') : get(this.props[key], 'update')
         return Promise.resolve(configs.onSubmit ? configs.onSubmit(apiData, form, this.props) : submitAction(apiData, { forceUpdates: true }))
           .then(data => {
             if(typeof onSubmitSuccess === 'function') {
@@ -84,16 +86,13 @@ export default function withFinalForm({
             onSubmit={this.handleSubmit}
             validate={this.handleValidate}
             initialValues={this.initialValues}
-            render={({ handleSubmit, form, submitting, ...rest }) => {
-              return (
-                <ChildComponent
-                  {...this.props}
-                  handleSubmit={handleSubmit}
-                  valid={isFormValid(rest) }
-                  submitting={submitting}
-                />
-              )
-            }}
+            render={formProps => (
+              <ChildComponent
+                {...formProps}
+                {...this.props}
+                valid={isFormValid(formProps) }
+              />
+            )}
           />
         )
       }
@@ -101,11 +100,11 @@ export default function withFinalForm({
   }
 }
 
-function getData(values, props, form, valuesInteceptor, registeredFields) {
-  if(typeof valuesInteceptor === 'function') {
-    return valuesInteceptor(pick(values, registeredFields), props, form)
+function getData(values, props, form, valuesInterceptor) {
+  if(typeof valuesInterceptor === 'function') {
+    return valuesInterceptor(values, props, form)
   }
-  return pick(values, registeredFields)
+  return values
 }
 
 function isFormValid(form = {}) {
@@ -126,17 +125,10 @@ function getIdKey(props, { key, resource, configs } = {}) {
   if(!key) {
     return false
   }
-  if(!get(resource, 'endpoint')) {
+  let idKey = parseIdKey(resource.endpoint)
+  if(!idKey) {
     return false
   }
-  let idKey = (parse(resource.endpoint || '') || [])
-    .filter(item => typeof item !== 'string')
-    .filter(({ optional }) => optional)
-    .pop()
-  if(isEmpty(idKey)) {
-    return false
-  }
-  idKey = get(idKey, 'name')
   if(get(props, idKey)) {
     return { [idKey]: get(props, idKey) }
   }
